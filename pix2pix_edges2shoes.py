@@ -2,6 +2,8 @@ import torch
 from torch.utils.data import DataLoader
 import os
 import tarfile
+import numpy as np
+from PIL import Image, ImageDraw
 import urllib.request
 
 import torch.nn as nn
@@ -296,6 +298,70 @@ def train_pix2pix():
     plt.legend()
     plt.grid(True)
     plt.savefig('pix2pix_loss_plot.png')
+
+
+    # Load and process a house doodle to generate a shoe
+    def generate_shoe_from_doodle():
+        # Create a simple house doodle programmatically
+        
+        # Create a 256x256 white canvas
+        doodle = Image.new('RGB', (256, 256), 'white')
+        draw = ImageDraw.Draw(doodle)
+        
+        # Draw a simple house doodle with black lines
+        # House base (rectangle)
+        draw.rectangle([80, 150, 180, 220], outline='black', width=3, fill=None)
+        
+        # Roof (triangle)
+        draw.polygon([(70, 150), (130, 100), (190, 150)], outline='black', width=3, fill=None)
+        
+        # Door
+        draw.rectangle([115, 180, 145, 220], outline='black', width=2, fill=None)
+        
+        # Windows
+        draw.rectangle([90, 160, 110, 180], outline='black', width=2, fill=None)
+        draw.rectangle([150, 160, 170, 180], outline='black', width=2, fill=None)
+        
+        # Convert to tensor and normalize
+        doodle_array = np.array(doodle).astype(np.float32) / 255.0
+        doodle_tensor = torch.from_numpy(doodle_array).permute(2, 0, 1).unsqueeze(0)
+        doodle_tensor = (doodle_tensor - 0.5) / 0.5  # Normalize to [-1, 1]
+        doodle_tensor = doodle_tensor.to(device)
+        
+        # Generate shoe using the trained generator
+        generator.eval()
+        with torch.no_grad():
+            generated_shoe = generator(doodle_tensor)
+            
+            # Denormalize for visualization
+            def denormalize(tensor):
+                return (tensor * 0.5 + 0.5).clamp(0, 1)
+            
+            doodle_denorm = denormalize(doodle_tensor[0].cpu())
+            shoe_denorm = denormalize(generated_shoe[0].cpu())
+            
+            # Create comparison plot
+            fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+            
+            axes[0].imshow(doodle_denorm.permute(1, 2, 0))
+            axes[0].set_title('Input Doodle (House)')
+            axes[0].axis('off')
+            
+            axes[1].imshow(shoe_denorm.permute(1, 2, 0))
+            axes[1].set_title('Generated Shoe')
+            axes[1].axis('off')
+            
+            plt.suptitle('House Doodle to Shoe Generation')
+            plt.tight_layout()
+            
+            # Save the result
+            plt.savefig('house_doodle_to_shoe.png', dpi=150, bbox_inches='tight')
+            plt.close()
+            
+            print("Generated shoe from house doodle saved as 'house_doodle_to_shoe.png'")
+
+    # Generate shoe from house doodle
+    generate_shoe_from_doodle()
 
         
 
